@@ -1,11 +1,7 @@
 package me.storm.ninegag.ui;
 
-import android.app.ActionBar;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.support.v4.app.NavUtils;
-import android.util.Log;
-import android.view.MenuItem;
 import android.view.View;
 
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
@@ -17,6 +13,7 @@ import butterknife.ButterKnife;
 import butterknife.InjectView;
 import me.storm.ninegag.R;
 import me.storm.ninegag.view.ProgressWheel;
+import me.storm.ninegag.view.swipeback.SwipeBackActivity;
 import uk.co.senab.photoview.PhotoView;
 import uk.co.senab.photoview.PhotoViewAttacher;
 
@@ -39,8 +36,6 @@ public class ImageViewActivity extends SwipeBackActivity {
         setContentView(R.layout.activity_imageview);
         ButterKnife.inject(this);
 
-        ActionBar actionBar = getActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
         setTitle(R.string.view_big_image);
 
         mAttacher = new PhotoViewAttacher(photoView);
@@ -66,16 +61,6 @@ public class ImageViewActivity extends SwipeBackActivity {
                 progressWheel.setProgress(360 * current / total);
             }
         });
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case android.R.id.home:
-                finish();
-                return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     @Override

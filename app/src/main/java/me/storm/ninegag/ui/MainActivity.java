@@ -1,17 +1,15 @@
 package me.storm.ninegag.ui;
 
-import android.app.ActionBar;
-import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.view.GravityCompat;
-import android.support.v4.widget.DrawerLayout;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
@@ -20,7 +18,6 @@ import me.storm.ninegag.model.Category;
 import me.storm.ninegag.ui.fragment.BaseFragment;
 import me.storm.ninegag.ui.fragment.DrawerFragment;
 import me.storm.ninegag.ui.fragment.FeedsFragment;
-import me.storm.ninegag.util.ToastUtils;
 import me.storm.ninegag.view.BlurFoldingActionBarToggle;
 import me.storm.ninegag.view.FoldingDrawerLayout;
 
@@ -30,6 +27,12 @@ import me.storm.ninegag.view.FoldingDrawerLayout;
 public class MainActivity extends BaseActivity {
     @InjectView(R.id.drawer_layout)
     FoldingDrawerLayout mDrawerLayout;
+
+    @InjectView(R.id.content_frame)
+    FrameLayout contentLayout;
+
+    @InjectView(R.id.blur_image)
+    ImageView blurImage;
 
     private BlurFoldingActionBarToggle mDrawerToggle;
 
@@ -44,31 +47,31 @@ public class MainActivity extends BaseActivity {
         setContentView(R.layout.activity_main);
         ButterKnife.inject(this);
 
-        initActionBar();
+        actionBar.setIcon(R.drawable.ic_actionbar);
+        mDrawerLayout.setScrimColor(Color.argb(100, 255, 255, 255));
         mDrawerToggle = new BlurFoldingActionBarToggle(this, mDrawerLayout, R.drawable.ic_drawer, R.string.drawer_open, R.string.drawer_close) {
             @Override
             public void onDrawerOpened(View view) {
+                super.onDrawerOpened(view);
                 setTitle(R.string.app_name);
                 mMenu.findItem(R.id.action_refresh).setVisible(false);
             }
 
             @Override
             public void onDrawerClosed(View view) {
+                super.onDrawerClosed(view);
                 setTitle(mCategory.getDisplayName());
                 mMenu.findItem(R.id.action_refresh).setVisible(true);
+
+                blurImage.setVisibility(View.GONE);
+                blurImage.setImageBitmap(null);
             }
         };
+        mDrawerToggle.setBlurImageAndView(blurImage, contentLayout);
         mDrawerLayout.setDrawerListener(mDrawerToggle);
 
         setCategory(Category.hot);
         replaceFragment(R.id.left_drawer, new DrawerFragment());
-    }
-
-    private void initActionBar() {
-        ActionBar actionBar = getActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
-        actionBar.setHomeButtonEnabled(true);
-        actionBar.setDisplayShowTitleEnabled(true);
     }
 
     @Override
@@ -104,14 +107,10 @@ public class MainActivity extends BaseActivity {
             case R.id.action_refresh:
                 mContentFragment.loadFirstAndScrollToTop();
                 return true;
-            case R.id.action_settings:
-                startActivity(new Intent(this, PreferenceActivity.class));
-                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
-
 
     public void setCategory(Category category) {
         mDrawerLayout.closeDrawer(GravityCompat.START);

@@ -7,13 +7,13 @@ import android.os.Bundle;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
 import android.support.v4.widget.SwipeRefreshLayout;
-import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.ListView;
-import android.widget.Toast;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
@@ -34,10 +34,11 @@ import me.storm.ninegag.ui.ImageViewActivity;
 import me.storm.ninegag.ui.adapter.CardsAnimationAdapter;
 import me.storm.ninegag.ui.adapter.FeedsAdapter;
 import me.storm.ninegag.util.ActionBarUtils;
-import me.storm.ninegag.util.ListViewUtils;
 import me.storm.ninegag.util.TaskUtils;
+import me.storm.ninegag.util.ToastUtils;
 import me.storm.ninegag.view.LoadingFooter;
-import me.storm.ninegag.view.PageListView;
+import me.storm.ninegag.view.OnLoadNextListener;
+import me.storm.ninegag.view.PageStaggeredGridView;
 
 /**
  * Created by storm on 14-3-25.
@@ -48,8 +49,10 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
     @InjectView(R.id.swipe_container)
     SwipeRefreshLayout mSwipeLayout;
 
-    @InjectView(R.id.listView)
-    PageListView mListView;
+    @InjectView(R.id.grid_view)
+    PageStaggeredGridView gridView;
+
+    private MenuItem mRefreshItem;
 
     private Category mCategory;
     private FeedsDataHelper mDataHelper;
@@ -65,29 +68,35 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View contentView = inflater.inflate(R.layout.fragment_feed, container, false);
         ButterKnife.inject(this, contentView);
 
         parseArgument();
         mDataHelper = new FeedsDataHelper(App.getContext(), mCategory);
-        mAdapter = new FeedsAdapter(getActivity(), mListView);
+        mAdapter = new FeedsAdapter(getActivity(), gridView);
         View header = new View(getActivity());
-        mListView.addHeaderView(header);
+        gridView.addHeaderView(header);
         AnimationAdapter animationAdapter = new CardsAnimationAdapter(mAdapter);
-        animationAdapter.setAbsListView(mListView);
-        mListView.setAdapter(animationAdapter);
-        mListView.setLoadNextListener(new PageListView.OnLoadNextListener() {
+        animationAdapter.setAbsListView(gridView);
+        gridView.setAdapter(animationAdapter);
+        gridView.setLoadNextListener(new OnLoadNextListener() {
             @Override
             public void onLoadNext() {
                 loadNext();
             }
         });
 
-        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                String imageUrl = mAdapter.getItem(position - mListView.getHeaderViewsCount()).images.large;
+                String imageUrl = mAdapter.getItem(position - gridView.getHeaderViewsCount()).images.large;
                 Intent intent = new Intent(getActivity(), ImageViewActivity.class);
                 intent.putExtra(ImageViewActivity.IMAGE_URL, imageUrl);
                 startActivity(intent);
@@ -111,7 +120,8 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
         actionBarContainer.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ListViewUtils.smoothScrollListViewToTop(mListView);
+//                ListViewUtils.smoothScrollListViewToTop(gridView);
+                gridView.smoothScrollToPositionFromTop(0, 0);
             }
         });
     }
@@ -123,7 +133,7 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
 
     private void loadData(String next) {
         if (!mSwipeLayout.isRefreshing() && ("0".equals(next))) {
-            mSwipeLayout.setRefreshing(true);
+            setRefreshing(true);
         }
         executeRequest(new GsonRequest(String.format(GagApi.LIST, mCategory.name(), next), Feed.FeedRequestData.class, responseListener(), errorListener()));
     }
@@ -149,9 +159,9 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
                     protected void onPostExecute(Object o) {
                         super.onPostExecute(o);
                         if (isRefreshFromTop) {
-                            mSwipeLayout.setRefreshing(false);
+                            setRefreshing(false);
                         } else {
-                            mListView.setState(LoadingFooter.State.Idle, 3000);
+                            gridView.setState(LoadingFooter.State.Idle);
                         }
                     }
                 });
@@ -163,9 +173,9 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
         return new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Toast.makeText(App.getContext(), R.string.loading_failed, Toast.LENGTH_SHORT).show();
-                mSwipeLayout.setRefreshing(false);
-                mListView.setState(LoadingFooter.State.Idle, 3000);
+                ToastUtils.showShort(R.string.loading_failed);
+                setRefreshing(false);
+                gridView.setState(LoadingFooter.State.Idle, 3000);
             }
         };
     }
@@ -180,7 +190,7 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
     }
 
     public void loadFirstAndScrollToTop() {
-        ListViewUtils.smoothScrollListViewToTop(mListView);
+        // TODO: gridView scroll to top
         loadFirst();
     }
 
@@ -205,5 +215,21 @@ public class FeedsFragment extends BaseFragment implements LoaderManager.LoaderC
     @Override
     public void onRefresh() {
         loadFirst();
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        mRefreshItem = menu.findItem(R.id.action_refresh);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    private void setRefreshing(boolean refreshing) {
+        mSwipeLayout.setRefreshing(refreshing);
+        if (mRefreshItem == null) return;
+
+        if (refreshing)
+            mRefreshItem.setActionView(R.layout.actionbar_refresh_progress);
+        else
+            mRefreshItem.setActionView(null);
     }
 }
